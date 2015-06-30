@@ -1,7 +1,7 @@
 Some Mesos Framework
 ====================
 
-Not sure yet.
+Solution for [Project Euler #52](https://projecteuler.net/problem=52)
 
 ### Requirements
 
