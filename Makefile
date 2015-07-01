@@ -6,10 +6,10 @@ CXXLINK = $(CXX) $(INCLUDES) $(CXXFLAGS) -o $@
 HEADERS = constants.hpp
 
 default: all
-all: SomeSceduler MathExecutor
+all: SomeScheduler MathExecutor
 
 %: %.cpp $(HEADERS)
 	$(CXXLINK) $< $(LDFLAGS)
 
 clean:
-	(rm -f SomeSceduler)
+	(rm -f SomeScheduler MathExecutor)

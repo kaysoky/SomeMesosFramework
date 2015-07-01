@@ -22,13 +22,11 @@
 #include <signal.h>
 #include <unistd.h>
 #include <iostream>
-#include <functional>
 #include <string>
-#include <queue>
 #include <vector>
-#include <map>
 #include <mesos/resources.hpp>
 #include <mesos/scheduler.hpp>
+#include <stout/stringify.hpp>
 #include "constants.hpp"
 
 using namespace mesos;
@@ -43,7 +41,7 @@ using std::map;
 using mesos::Resources;
 
 const float CPUS_PER_TASK = 0.4;
-const int32_t MEM_PER_TASK = 10;
+const int32_t MEM_PER_TASK = 1;
 
 MesosSchedulerDriver* schedulerDriver;
 
@@ -55,7 +53,8 @@ public:
   SomeScheduler(const ExecutorInfo& _bruteForcer) 
     : bruteForcer(_bruteForcer),
       tasksLaunched(0),
-      tasksFinished(0) {}
+      tasksFinished(0), 
+      answer(0) {}
 
   virtual ~SomeScheduler() {}
 
@@ -71,6 +70,8 @@ public:
   virtual void resourceOffers(SchedulerDriver* driver,
       const vector<Offer>& offers)
   {
+    if (tasksLaunched) return;
+
     static Resources TASK_RESOURCES = Resources::parse(
         "cpus:" + stringify<float>(CPUS_PER_TASK) +
         ";mem:" + stringify<size_t>(MEM_PER_TASK)).get();
@@ -87,13 +88,13 @@ public:
       }
     }
 
+    size_t counter = 0;
     for (size_t i = 0; i < offers.size(); i++) {
       const Offer& offer = offers[i];
       Resources remaining = offer.resources();
 
       // Spawn a task per number
       vector<TaskInfo> tasks;
-      size_t counter = 0;
       while (remaining.flatten().contains(TASK_RESOURCES)) {
         counter++;
         remaining -= TASK_RESOURCES;
@@ -107,13 +108,14 @@ public:
         task.mutable_executor()->MergeFrom(bruteForcer);
         task.mutable_resources()->MergeFrom(TASK_RESOURCES);
 
-        Label *label = tasks.add_labels();
+        Labels *labels = task.mutable_labels();
+        Label *label = labels->add_labels();
         label->set_key(LABEL_KEY_START_NUM);
-        label->set_value(counter);
+        label->set_value(stringify<size_t>(counter));
         
-        label = tasks.add_labels();
+        label = labels->add_labels();
         label->set_key(LABEL_KEY_INC_NUM);
-        label->set_value(maxTasks);
+        label->set_value(stringify<size_t>(maxTasks));
 
         tasksLaunched++;
         tasks.push_back(task);
@@ -128,9 +130,28 @@ public:
   virtual void statusUpdate(SchedulerDriver* driver, const TaskStatus& status)
   {
     if (status.state() == TASK_FINISHED) {
-      cout << "Task " << status.task_id().value() << " finished" << endl;
+      if (status.has_message()) {
+        size_t number = numify<size_t>(status.message()).get();
+        cout << "Task " << status.task_id().value() << " finished with answer = " << number << endl;
+
+        // Compare answers
+        if (answer == 0 || number < answer) {
+          answer = number;
+        }
+      } else {
+        cout << "Task " << status.task_id().value() << " finished " << endl;
+      }
+      
       tasksFinished++;
     }
+
+    // if (status.state() == TASK_RUNNING && status.has_message()) {
+    //   size_t number = numify<size_t>(status.message()).get();
+    //   if (answer != 0 && number > answer) {
+    //     cout << "Killing task " << status.task_id().value() << endl;
+    //     driver->killTask(status.task_id());
+    //   }
+    // }
 
     if (tasksFinished == tasksLaunched) {
       driver->stop();
@@ -161,6 +182,7 @@ private:
   const ExecutorInfo bruteForcer;
   size_t tasksLaunched;
   size_t tasksFinished;
+  size_t answer;
 };
 
 static void SIGINTHandler(int signum)
