@@ -88,14 +88,14 @@ static void runTask(ExecutorDriver* driver, const TaskInfo& task)
     number += incNum;
 
     // Send a status update every 1000 cycles
-    // statusUpdate = (statusUpdate + 1) % 1000;
-    // if (statusUpdate == 0) {
-    //   TaskStatus status;
-    //   status.mutable_task_id()->MergeFrom(task.task_id());
-    //   status.set_state(TASK_RUNNING);
-    //   status.set_message(stringify<size_t>(number));
-    //   driver->sendStatusUpdate(status);
-    // }
+    statusUpdate = (statusUpdate + 1) % 1000;
+    if (statusUpdate == 0) {
+      TaskStatus status;
+      status.mutable_task_id()->MergeFrom(task.task_id());
+      status.set_state(TASK_RUNNING);
+      status.set_message(stringify<size_t>(number));
+      driver->sendStatusUpdate(status);
+    }
   }
 
   TaskStatus status;
@@ -139,7 +139,6 @@ class MathExecutor : public Executor
     virtual void launchTask(ExecutorDriver* driver, const TaskInfo& task)
     {
       cout << "Starting task " << task.task_id().value() << endl;
-      *shouldStop = false;
 
       lambda::function<void(void)>* thunk =
         new lambda::function<void(void)>(lambda::bind(&runTask, driver, task));
@@ -162,16 +161,10 @@ class MathExecutor : public Executor
       }
     }
 
-  virtual void killTask(ExecutorDriver* driver, const TaskID& taskId) {
-    *shouldStop = true;
-  }
-
+  virtual void killTask(ExecutorDriver* driver, const TaskID& taskId) {}
   virtual void frameworkMessage(ExecutorDriver* driver, const string& data) {}
   virtual void shutdown(ExecutorDriver* driver) {}
   virtual void error(ExecutorDriver* driver, const string& message) {}
-
-private:
-  bool *shouldStop;
 };
 
 

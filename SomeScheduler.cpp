@@ -41,7 +41,7 @@ using std::map;
 using mesos::Resources;
 
 const float CPUS_PER_TASK = 0.4;
-const int32_t MEM_PER_TASK = 1;
+const int32_t MEM_PER_TASK = 32;
 
 MesosSchedulerDriver* schedulerDriver;
 
@@ -145,13 +145,12 @@ public:
       tasksFinished++;
     }
 
-    // if (status.state() == TASK_RUNNING && status.has_message()) {
-    //   size_t number = numify<size_t>(status.message()).get();
-    //   if (answer != 0 && number > answer) {
-    //     cout << "Killing task " << status.task_id().value() << endl;
-    //     driver->killTask(status.task_id());
-    //   }
-    // }
+    if (status.state() == TASK_RUNNING && status.has_message()) {
+      size_t number = numify<size_t>(status.message()).get();
+      if (answer != 0 && number > answer) {
+        driver->stop();
+      }
+    }
 
     if (tasksFinished == tasksLaunched) {
       driver->stop();
@@ -171,7 +170,10 @@ public:
   virtual void executorLost(SchedulerDriver* driver,
       const ExecutorID& executorID,
       const SlaveID& slaveID,
-      int status) {}
+      int status) 
+  {
+    cout << "Executor " << executorID.value() << " lost" << endl;
+  }
 
   virtual void error(SchedulerDriver* driver, const string& message)
   {
